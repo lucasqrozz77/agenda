@@ -1,0 +1,209 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RO | Central Operacional</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="badge-logo">RO</div>
+      <div>
+        <strong>CENTRAL RO</strong>
+        <small>PLANEJAMENTO OPERACIONAL</small>
+      </div>
+    </div>
+
+    <p class="section-label">NAVEGAÇÃO</p>
+    <nav>
+      <button class="nav-btn active" data-view="month">▦ Agenda mensal</button>
+      <button class="nav-btn" data-view="week">▤ Agenda semanal</button>
+      <button class="nav-btn" data-view="day">◷ Agenda diária</button>
+      <button class="nav-btn" data-view="all">☷ Todas as atividades</button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="status-indicator"></div>
+      <div>
+        <strong>SISTEMA OPERACIONAL</strong>
+        <small>Armazenamento local ativo</small>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PAINEL DE CONTROLE / RO-01</p>
+        <h1 id="page-title">Agenda mensal</h1>
+        <p class="muted" id="page-description">
+          Planeje, organize e acompanhe suas atividades.
+        </p>
+      </div>
+      <button class="primary-btn" id="add-activity">＋ Nova atividade</button>
+    </header>
+
+    <section class="stats">
+      <article class="stat-card">
+        <span>ATIVIDADES DO PERÍODO</span>
+        <strong id="total-count">0</strong>
+        <small>Registros programados</small>
+      </article>
+      <article class="stat-card">
+        <span>CONCLUÍDAS</span>
+        <strong id="done-count">0</strong>
+        <small>Atividades finalizadas</small>
+      </article>
+      <article class="stat-card">
+        <span>PENDENTES</span>
+        <strong id="pending-count">0</strong>
+        <small>Aguardando execução</small>
+      </article>
+      <article class="stat-card">
+        <span>ATRASADAS</span>
+        <strong id="overdue-count">0</strong>
+        <small>Prazo ultrapassado</small>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="period-controls">
+          <button class="icon-btn" id="previous-period" aria-label="Período anterior">‹</button>
+          <h2 id="period-title">Mês</h2>
+          <button class="icon-btn" id="next-period" aria-label="Próximo período">›</button>
+          <button class="secondary-btn" id="today-btn">Hoje</button>
+        </div>
+
+        <div class="toolbar-actions">
+          <select id="category-filter" aria-label="Filtrar categoria">
+            <option value="all">Todas as categorias</option>
+            <option>Estudos</option>
+            <option>Trabalho</option>
+            <option>Treinamento físico</option>
+            <option>Pessoal</option>
+            <option>Compromissos</option>
+            <option>Casa</option>
+            <option>Outros</option>
+          </select>
+          <button class="secondary-btn" id="export-btn">Exportar backup</button>
+        </div>
+      </div>
+
+      <div id="calendar-view">
+        <div class="calendar-grid" id="calendar"></div>
+      </div>
+
+      <div id="schedule-view" hidden>
+        <div class="schedule" id="schedule"></div>
+      </div>
+
+      <div id="all-view" hidden>
+        <div id="activity-list" class="activity-list"></div>
+      </div>
+    </section>
+
+    <section class="panel selected-panel">
+      <div class="selected-header">
+        <div>
+          <p class="eyebrow">DETALHES DO PLANEJAMENTO</p>
+          <h2 id="selected-title">Atividades do dia</h2>
+        </div>
+        <button class="secondary-btn" id="add-selected">＋ Adicionar nesta data</button>
+      </div>
+      <div id="selected-activities" class="activity-list"></div>
+    </section>
+
+    <footer>
+      <span>ROTINA OPERACIONAL · RO</span>
+      <span>Versão 1.0 · Dados armazenados neste navegador</span>
+    </footer>
+  </main>
+
+  <dialog id="activity-dialog">
+    <form id="activity-form">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">REGISTRO DE ATIVIDADE</p>
+          <h2 id="dialog-title">Nova atividade</h2>
+        </div>
+        <button type="button" class="icon-btn" id="close-dialog"
+          aria-label="Fechar formulário">×</button>
+      </div>
+
+      <input type="hidden" id="activity-id">
+
+      <label for="activity-title">Título *</label>
+      <input id="activity-title" maxlength="120"
+        placeholder="Ex.: Estudar para o concurso" required>
+
+      <label for="activity-description">Descrição</label>
+      <textarea id="activity-description" maxlength="1000" rows="3"
+        placeholder="Detalhes, local ou observações"></textarea>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-date">Data *</label>
+          <input type="date" id="activity-date" required>
+        </div>
+        <div>
+          <label for="activity-category">Categoria</label>
+          <select id="activity-category">
+            <option>Estudos</option>
+            <option>Trabalho</option>
+            <option>Treinamento físico</option>
+            <option>Pessoal</option>
+            <option>Compromissos</option>
+            <option>Casa</option>
+            <option>Outros</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-start">Horário inicial</label>
+          <input type="time" id="activity-start">
+        </div>
+        <div>
+          <label for="activity-end">Horário final</label>
+          <input type="time" id="activity-end">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-priority">Prioridade</label>
+          <select id="activity-priority">
+            <option value="low">Baixa</option>
+            <option value="medium" selected>Média</option>
+            <option value="high">Alta</option>
+          </select>
+        </div>
+        <div>
+          <label for="activity-status">Situação</label>
+          <select id="activity-status">
+            <option value="pending">Pendente</option>
+            <option value="done">Concluída</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="error" id="form-error" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button type="button" class="secondary-btn" id="cancel-dialog">
+          Cancelar
+        </button>
+        <button type="submit" class="primary-btn">Salvar atividade</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
