@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -44,7 +43,10 @@
           Planeje, organize e acompanhe suas atividades.
         </p>
       </div>
-      <button class="primary-btn" id="add-activity">＋ Nova atividade</button>
+      <div class="topbar-actions">
+        <button class="secondary-btn" id="add-routine">↻ Nova rotina</button>
+        <button class="primary-btn" id="add-activity">＋ Nova atividade</button>
+      </div>
     </header>
 
     <section class="stats">
@@ -130,6 +132,19 @@
 
       <input type="hidden" id="activity-id">
 
+      <div class="kind-toggle" role="radiogroup" aria-label="Tipo de atividade">
+        <label>
+          <input type="radio" name="activity-kind" value="event" checked>
+          <span>Compromisso eventual</span>
+          <small>Aparece em todas as agendas</small>
+        </label>
+        <label>
+          <input type="radio" name="activity-kind" value="routine">
+          <span>Rotina cotidiana</span>
+          <small>Repete toda semana · só na agenda semanal e diária</small>
+        </label>
+      </div>
+
       <label for="activity-title">Título *</label>
       <input id="activity-title" maxlength="120"
         placeholder="Ex.: Estudar para o concurso" required>
@@ -140,7 +155,7 @@
 
       <div class="form-row">
         <div>
-          <label for="activity-date">Data *</label>
+          <label for="activity-date" id="date-label">Data *</label>
           <input type="date" id="activity-date" required>
         </div>
         <div>
@@ -149,16 +164,46 @@
         </div>
       </div>
 
+      <div id="routine-days" hidden>
+        <p class="field-label">Repete nos dias</p>
+        <div class="weekday-picker" id="weekday-picker">
+          <label><input type="checkbox" value="0"><span>Dom</span></label>
+          <label><input type="checkbox" value="1"><span>Seg</span></label>
+          <label><input type="checkbox" value="2"><span>Ter</span></label>
+          <label><input type="checkbox" value="3"><span>Qua</span></label>
+          <label><input type="checkbox" value="4"><span>Qui</span></label>
+          <label><input type="checkbox" value="5"><span>Sex</span></label>
+          <label><input type="checkbox" value="6"><span>Sáb</span></label>
+        </div>
+        <div class="chip-row">
+          <button type="button" class="chip" data-days="0,1,2,3,4,5,6">Todos os dias</button>
+          <button type="button" class="chip" data-days="1,2,3,4,5">Seg a sex</button>
+          <button type="button" class="chip" data-days="0,6">Fim de semana</button>
+        </div>
+      </div>
+
       <div class="form-row">
         <div>
           <label for="activity-start">Horário inicial</label>
-          <input type="time" id="activity-start">
+          <input id="activity-start" class="time-input" inputmode="numeric"
+            maxlength="5" placeholder="08:00" autocomplete="off" list="time-options">
         </div>
         <div>
           <label for="activity-end">Horário final</label>
-          <input type="time" id="activity-end">
+          <input id="activity-end" class="time-input" inputmode="numeric"
+            maxlength="5" placeholder="09:00" autocomplete="off" list="time-options">
         </div>
       </div>
+
+      <div class="chip-row" aria-label="Duração rápida">
+        <span class="chip-label">Duração:</span>
+        <button type="button" class="chip" data-minutes="30">30 min</button>
+        <button type="button" class="chip" data-minutes="60">1 h</button>
+        <button type="button" class="chip" data-minutes="90">1h30</button>
+        <button type="button" class="chip" data-minutes="120">2 h</button>
+        <button type="button" class="chip" id="clear-time">Sem horário</button>
+      </div>
+      <datalist id="time-options"></datalist>
 
       <div class="form-row">
         <div>
@@ -170,7 +215,7 @@
             <option value="high">Alta</option>
           </select>
         </div>
-        <div>
+        <div id="status-field">
           <label for="activity-status">Situação</label>
           <select id="activity-status">
             <option value="pending">Pendente</option>

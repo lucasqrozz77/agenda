@@ -1,4 +1,3 @@
-
 "use strict";
 
 const $ = (selector) => document.querySelector(selector);
@@ -14,11 +13,13 @@ const CATEGORIES = [
 const PRIORITIES = ["none", "low", "medium", "high"];
 
 const VIEW_INFO = {
-  month: ["Agenda mensal", "Visão geral das atividades do mês."],
-  week: ["Agenda semanal", "Organize os compromissos dos sete dias."],
-  day: ["Agenda diária", "Consulte e gerencie as atividades do dia."],
+  month: ["Agenda mensal", "Compromissos eventuais do mês. Clique duas vezes em um dia para abri-lo."],
+  week: ["Agenda semanal", "Compromissos e rotinas dos sete dias. Clique duas vezes em um dia para abri-lo."],
+  day: ["Agenda diária", "Compromissos e rotinas do dia."],
   all: ["Todas as atividades", "Histórico completo dos seus registros."]
 };
+
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 function localISO(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -69,6 +70,22 @@ function esc(value = "") {
   })[char]);
 }
 
+function normalizeActivity(item) {
+  const isRoutine = item.kind === "routine";
+  const isISO = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+  return {
+    ...item,
+    kind: isRoutine ? "routine" : "event",
+    category: CATEGORIES.includes(item.category) ? item.category : "Outros",
+    priority: PRIORITIES.includes(item.priority) ? item.priority : "none",
+    weekdays: isRoutine && Array.isArray(item.weekdays)
+      ? [...new Set(item.weekdays.filter(day => Number.isInteger(day) && day >= 0 && day <= 6))]
+      : [],
+    doneDates: Array.isArray(item.doneDates) ? item.doneDates.filter(isISO) : []
+  };
+}
+
 function loadActivities() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -85,11 +102,7 @@ function loadActivities() {
         /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
         ["pending", "done"].includes(item.status)
       )
-      .map(item => ({
-        ...item,
-        category: CATEGORIES.includes(item.category) ? item.category : "Outros",
-        priority: PRIORITIES.includes(item.priority) ? item.priority : "none"
-      }));
+      .map(normalizeActivity);
   } catch (error) {
     console.error("Erro ao carregar os dados:", error);
     alert("Não foi possível ler os dados salvos. Verifique o armazenamento do navegador.");
@@ -104,7 +117,18 @@ function fillCategorySelects() {
     '<option value="all">Todas as categorias</option>' + options;
 }
 
+function fillTimeOptions() {
+  const options = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+    const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
+    const mm = String(minutes % 60).padStart(2, "0");
+    options.push(`<option value="${hh}:${mm}"></option>`);
+  }
+  $("#time-options").innerHTML = options.join("");
+}
+
 fillCategorySelects();
+fillTimeOptions();
 
 let activities = loadActivities();
 let selectedDate = localISO();
@@ -132,6 +156,9 @@ function showToast(message) {
 
 function isOverdue(activity) {
   if (activity.status === "done") return false;
+
+  // Rotinas são hábitos recorrentes: não ficam "atrasadas".
+  if (activity.kind === "routine") return false;
 
   const today = localISO();
 
@@ -164,19 +191,55 @@ function filteredActivities() {
     );
 }
 
+function byTime(a, b) {
+  return (a.startTime || "99:99").localeCompare(b.startTime || "99:99") ||
+    a.title.localeCompare(b.title);
+}
+
+function routineOccursOn(item, date) {
+  return item.kind === "routine" &&
+    date >= item.date &&
+    item.weekdays.includes(parseDate(date).getDay());
+}
+
+// A rotina se repete toda semana; cada data tem a sua própria situação.
+function occurrence(item, date) {
+  return {
+    ...item,
+    date,
+    status: item.doneDates.includes(date) ? "done" : "pending"
+  };
+}
+
+// Compromissos eventuais da data e, se pedido, as rotinas que caem nela.
+function itemsOn(date, withRoutines = true) {
+  const result = [];
+
+  for (const item of filteredActivities()) {
+    if (item.kind === "routine") {
+      if (withRoutines && routineOccursOn(item, date)) {
+        result.push(occurrence(item, date));
+      }
+    } else if (item.date === date) {
+      result.push(item);
+    }
+  }
+
+  return result.sort(byTime);
+}
+
 function getPeriodActivities() {
   const list = filteredActivities();
 
   if (currentView === "all") return list;
 
   if (currentView === "day") {
-    return list.filter(item => item.date === selectedDate);
+    return itemsOn(selectedDate);
   }
 
   if (currentView === "week") {
     const start = weekStart(selectedDate);
-    const end = addDays(start, 6);
-    return list.filter(item => item.date >= start && item.date <= end);
+    return ALL_DAYS.flatMap(i => itemsOn(addDays(start, i)));
   }
 
   const start = monthStart(selectedDate);
@@ -184,16 +247,21 @@ function getPeriodActivities() {
   nextMonth.setMonth(nextMonth.getMonth() + 1);
   const end = addDays(localISO(nextMonth), -1);
 
-  return list.filter(item => item.date >= start && item.date <= end);
+  // A agenda mensal mostra só compromissos eventuais.
+  return list.filter(item =>
+    item.kind !== "routine" && item.date >= start && item.date <= end
+  );
 }
 
 function renderStats() {
   const list = getPeriodActivities();
-  const done = list.filter(item => item.status === "done").length;
-  const pending = list.filter(item => item.status === "pending").length;
-  const overdue = list.filter(isOverdue).length;
+  // Na aba "Todas", rotinas aparecem como registros e não têm situação própria.
+  const countable = list.filter(item => !(currentView === "all" && item.kind === "routine"));
+  const done = countable.filter(item => item.status === "done").length;
+  const pending = countable.filter(item => item.status === "pending").length;
+  const overdue = countable.filter(isOverdue).length;
 
-  $("#total-count").textContent = list.length;
+  $("#total-count").textContent = countable.length;
   $("#done-count").textContent = done;
   $("#pending-count").textContent = pending;
   $("#overdue-count").textContent = overdue;
@@ -203,19 +271,44 @@ function priorityLabel(priority) {
   return { high: "Alta", medium: "Média", low: "Baixa" }[priority] || "";
 }
 
-function activityMarkup(item) {
+function weekdaysLabel(days) {
+  const names = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const sorted = [...days].sort((a, b) => a - b);
+
+  if (sorted.length === 7) return "Todos os dias";
+  if (sorted.join() === "1,2,3,4,5") return "Seg a sex";
+  if (sorted.join() === "0,6") return "Fim de semana";
+  return sorted.map(day => names[day]).join(", ");
+}
+
+// asRecord: na aba "Todas", a rotina aparece uma única vez (sem checkbox por data).
+function activityMarkup(item, asRecord = false) {
   const overdue = isOverdue(item);
+  const isRoutine = item.kind === "routine";
   const time = item.startTime
     ? `${esc(item.startTime)}${item.endTime ? "–" + esc(item.endTime) : ""}`
     : "Sem horário";
 
-  return `
-    <article class="activity-item ${item.status === "done" ? "is-done" : ""}">
-      <input type="checkbox"
+  const control = isRoutine && asRecord
+    ? '<span class="routine-icon" aria-hidden="true">↻</span>'
+    : `<input type="checkbox"
         data-action="toggle"
         data-id="${esc(item.id)}"
+        data-date="${esc(item.date)}"
         aria-label="Marcar ${esc(item.title)} como concluída"
-        ${item.status === "done" ? "checked" : ""}>
+        ${item.status === "done" ? "checked" : ""}>`;
+
+  const dateText = formatDate(item.date, {
+    day: "2-digit", month: "short", year: "numeric"
+  });
+
+  const routineTag = isRoutine
+    ? `<span class="tag routine">↻ Rotina${asRecord ? " · " + esc(weekdaysLabel(item.weekdays)) : ""}</span>`
+    : "";
+
+  return `
+    <article class="activity-item ${item.status === "done" ? "is-done" : ""}">
+      ${control}
 
       <div>
         <div class="activity-title">${esc(item.title)}</div>
@@ -224,11 +317,10 @@ function activityMarkup(item) {
           : ""}
 
         <div class="activity-meta">
-          <span>${formatDate(item.date, {
-            day: "2-digit", month: "short", year: "numeric"
-          })}</span>
+          <span>${isRoutine && asRecord ? "A partir de " + dateText : dateText}</span>
           <span>${time}</span>
           <span>${esc(item.category)}</span>
+          ${routineTag}
           ${item.priority !== "none"
             ? `<span class="tag ${item.priority}">Prioridade ${priorityLabel(item.priority)}</span>`
             : ""}
@@ -246,9 +338,9 @@ function activityMarkup(item) {
   `;
 }
 
-function renderActivityList(element, list) {
+function renderActivityList(element, list, asRecord = false) {
   element.innerHTML = list.length
-    ? list.map(activityMarkup).join("")
+    ? list.map(item => activityMarkup(item, asRecord)).join("")
     : '<div class="empty">Nenhuma atividade encontrada neste período.</div>';
 }
 
@@ -258,7 +350,7 @@ function renderCalendar() {
   const offset = first.getDay();
   const start = addDays(localISO(first), -offset);
   const month = first.getMonth();
-  const list = filteredActivities();
+  const list = filteredActivities().filter(item => item.kind !== "routine");
 
   const weekdays = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
@@ -303,24 +395,24 @@ function renderCalendar() {
 
 function renderWeek() {
   const start = weekStart(selectedDate);
-  const list = filteredActivities();
   let html = "";
 
   for (let i = 0; i < 7; i++) {
     const date = addDays(start, i);
-    const items = list.filter(item => item.date === date);
+    const items = itemsOn(date);
     const today = date === localISO();
 
     html += `
-      <section class="schedule-day">
+      <section class="schedule-day" data-date="${date}">
         <div class="schedule-day-heading ${today ? "today" : ""}"
-          data-date="${date}" role="button" tabindex="0">
+          data-date="${date}" role="button" tabindex="0"
+          title="Clique duas vezes para abrir o dia">
           <strong>${formatDate(date, { weekday: "long", day: "2-digit", month: "long" })}</strong>
           <span>${items.length} atividade(s)</span>
         </div>
         <div class="schedule-items">
           ${items.length
-            ? items.map(activityMarkup).join("")
+            ? items.map(item => activityMarkup(item)).join("")
             : '<div class="empty">Sem atividades programadas.</div>'}
         </div>
       </section>
@@ -331,7 +423,7 @@ function renderWeek() {
 }
 
 function renderDay() {
-  const list = filteredActivities().filter(item => item.date === selectedDate);
+  const list = itemsOn(selectedDate);
   $("#schedule").innerHTML = `
     <section class="schedule-day">
       <div class="schedule-day-heading today">
@@ -342,7 +434,7 @@ function renderDay() {
       </div>
       <div class="schedule-items">
         ${list.length
-          ? list.map(activityMarkup).join("")
+          ? list.map(item => activityMarkup(item)).join("")
           : '<div class="empty">Nenhuma atividade programada para este dia.</div>'}
       </div>
     </section>
@@ -350,7 +442,8 @@ function renderDay() {
 }
 
 function renderSelectedDate() {
-  const list = filteredActivities().filter(item => item.date === selectedDate);
+  // Na agenda mensal, o detalhe do dia também mostra só compromissos eventuais.
+  const list = itemsOn(selectedDate, currentView !== "month");
   $("#selected-title").textContent =
     `Atividades de ${formatDate(selectedDate, {
       day: "2-digit", month: "long", year: "numeric"
@@ -394,7 +487,7 @@ function render() {
 
   if (currentView === "all") {
     $("#period-title").textContent = "Histórico";
-    renderActivityList($("#activity-list"), getPeriodActivities());
+    renderActivityList($("#activity-list"), getPeriodActivities(), true);
   }
 
   document.querySelectorAll(".nav-btn").forEach(button => {
@@ -405,12 +498,32 @@ function render() {
   renderSelectedDate();
 }
 
-function openForm(activity = null) {
+function syncKindUI() {
+  const kind = document.querySelector('input[name="activity-kind"]:checked').value;
+  const isRoutine = kind === "routine";
+  const isEdit = Boolean($("#activity-id").value);
+
+  $("#routine-days").hidden = !isRoutine;
+  $("#status-field").hidden = isRoutine;
+  $("#date-label").textContent = isRoutine ? "Começa em *" : "Data *";
+  $("#dialog-title").textContent =
+    `${isEdit ? "Editar" : "Nova"} ${isRoutine ? "rotina" : "atividade"}`;
+}
+
+function openForm(activity = null, defaults = {}) {
   $("#activity-form").reset();
   $("#form-error").textContent = "";
 
+  const kind = activity?.kind || defaults.kind || "event";
+  const weekdays = activity?.kind === "routine" ? activity.weekdays : ALL_DAYS;
+
   $("#activity-id").value = activity?.id || "";
-  $("#dialog-title").textContent = activity ? "Editar atividade" : "Nova atividade";
+  document.querySelector(`input[name="activity-kind"][value="${kind}"]`).checked = true;
+  document.querySelectorAll("#weekday-picker input").forEach(box => {
+    box.checked = weekdays.includes(Number(box.value));
+  });
+  syncKindUI();
+
   $("#activity-title").value = activity?.title || "";
   $("#activity-description").value = activity?.description || "";
   $("#activity-date").value = activity?.date || selectedDate;
@@ -446,11 +559,15 @@ $("#activity-form").addEventListener("submit", event => {
   event.preventDefault();
 
   const id = $("#activity-id").value;
+  const kind = document.querySelector('input[name="activity-kind"]:checked').value;
+  const isRoutine = kind === "routine";
+  const weekdays = [...document.querySelectorAll("#weekday-picker input:checked")]
+    .map(box => Number(box.value));
   const title = $("#activity-title").value.trim();
   const description = $("#activity-description").value.trim();
   const date = $("#activity-date").value;
-  const startTime = $("#activity-start").value;
-  const endTime = $("#activity-end").value;
+  const startTime = $("#activity-start").value.trim();
+  const endTime = $("#activity-end").value.trim();
   const category = $("#activity-category").value;
   const priority = $("#activity-priority").value;
   const status = $("#activity-status").value;
@@ -463,8 +580,23 @@ $("#activity-form").addEventListener("submit", event => {
     return;
   }
 
+  if ((startTime && !isValidTime(startTime)) || (endTime && !isValidTime(endTime))) {
+    error.textContent = "Use o formato HH:MM, por exemplo 08:30.";
+    return;
+  }
+
+  if (endTime && !startTime) {
+    error.textContent = "Informe também o horário inicial.";
+    return;
+  }
+
   if (startTime && endTime && endTime <= startTime) {
     error.textContent = "O horário final deve ser posterior ao inicial.";
+    return;
+  }
+
+  if (isRoutine && !weekdays.length) {
+    error.textContent = "Escolha pelo menos um dia da semana para a rotina.";
     return;
   }
 
@@ -490,7 +622,10 @@ $("#activity-form").addEventListener("submit", event => {
     endTime,
     category,
     priority,
-    status,
+    kind,
+    weekdays: isRoutine ? weekdays : [],
+    status: isRoutine ? "pending" : status,
+    doneDates: isRoutine ? (existing?.doneDates || []) : [],
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -511,8 +646,27 @@ $("#activity-form").addEventListener("submit", event => {
   selectedDate = date;
   closeForm();
   render();
-  showToast(existing ? "Atividade atualizada." : "Atividade cadastrada.");
+  showToast(isRoutine
+    ? "Rotina salva. Ela aparece nas agendas semanal e diária."
+    : existing ? "Atividade atualizada." : "Atividade cadastrada.");
 });
+
+// Duplo clique em um dia: contado manualmente, porque o calendário é
+// redesenhado a cada clique e o evento "dblclick" do navegador falha nisso.
+let lastDayClick = { date: null, time: 0 };
+
+function isDoubleClick(date) {
+  const now = Date.now();
+  const isDouble = lastDayClick.date === date && now - lastDayClick.time < 450;
+  lastDayClick = isDouble ? { date: null, time: 0 } : { date, time: now };
+  return isDouble;
+}
+
+function openDay(date) {
+  selectedDate = date;
+  currentView = "day";
+  render();
+}
 
 // Eventos delegados: funcionam mesmo depois de recriar o HTML.
 document.addEventListener("click", event => {
@@ -526,14 +680,21 @@ document.addEventListener("click", event => {
 
   const calendarDay = event.target.closest(".calendar-day");
   if (calendarDay) {
-    selectedDate = calendarDay.dataset.date;
+    const date = calendarDay.dataset.date;
+    if (isDoubleClick(date)) return openDay(date);
+
+    selectedDate = date;
     render();
     return;
   }
 
-  const periodDay = event.target.closest(".schedule-day-heading");
-  if (periodDay?.dataset.date) {
-    selectedDate = periodDay.dataset.date;
+  const periodDay = event.target.closest(".schedule-day");
+  if (periodDay?.dataset.date &&
+      !event.target.closest("button, input, .activity-item")) {
+    const date = periodDay.dataset.date;
+    if (currentView === "week" && isDoubleClick(date)) return openDay(date);
+
+    selectedDate = date;
     render();
     return;
   }
@@ -550,7 +711,10 @@ document.addEventListener("click", event => {
   }
 
   if (action === "delete") {
-    if (!confirm(`Excluir "${activity.title}"? Esta ação não pode ser desfeita.`)) return;
+    const question = activity.kind === "routine"
+      ? `Excluir a rotina "${activity.title}" de todos os dias? Esta ação não pode ser desfeita.`
+      : `Excluir "${activity.title}"? Esta ação não pode ser desfeita.`;
+    if (!confirm(question)) return;
 
     const previous = activities.slice();
     activities = activities.filter(item => item.id !== id);
@@ -583,20 +747,28 @@ document.addEventListener("change", event => {
   const activity = findActivity(checkbox.dataset.id);
   if (!activity) return;
 
-  const previousStatus = activity.status;
-  activity.status = checkbox.checked ? "done" : "pending";
+  const previous = { status: activity.status, doneDates: activity.doneDates.slice() };
+
+  if (activity.kind === "routine") {
+    // Rotina: a conclusão vale só para a data marcada.
+    const date = checkbox.dataset.date;
+    activity.doneDates = checkbox.checked
+      ? [...new Set([...activity.doneDates, date])]
+      : activity.doneDates.filter(item => item !== date);
+  } else {
+    activity.status = checkbox.checked ? "done" : "pending";
+  }
   activity.updatedAt = new Date().toISOString();
 
   if (!saveActivities()) {
-    activity.status = previousStatus;
+    activity.status = previous.status;
+    activity.doneDates = previous.doneDates;
     render();
     return;
   }
 
   render();
-  showToast(activity.status === "done"
-    ? "Atividade concluída."
-    : "Atividade reaberta.");
+  showToast(checkbox.checked ? "Atividade concluída." : "Atividade reaberta.");
 });
 
 $("#previous-period").addEventListener("click", () => {
@@ -664,6 +836,65 @@ $("#export-btn").addEventListener("click", () => {
 
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast("Backup exportado.");
+});
+
+
+// ---------- Rotinas, horários e duplo clique ----------
+
+$("#add-routine").addEventListener("click", () => openForm(null, { kind: "routine" }));
+
+document.querySelectorAll('input[name="activity-kind"]').forEach(radio =>
+  radio.addEventListener("change", syncKindUI)
+);
+
+document.querySelectorAll("[data-days]").forEach(button =>
+  button.addEventListener("click", () => {
+    const days = button.dataset.days.split(",").map(Number);
+    document.querySelectorAll("#weekday-picker input").forEach(box => {
+      box.checked = days.includes(Number(box.value));
+    });
+  })
+);
+
+function isValidTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+// Digite só números: "930" vira 09:30, "1845" vira 18:45.
+function maskTime(input) {
+  let digits = input.value.replace(/\D/g, "");
+  if (digits && digits[0] > "2") digits = "0" + digits;
+  digits = digits.slice(0, 4);
+  input.value = digits.length > 2
+    ? `${digits.slice(0, 2)}:${digits.slice(2)}`
+    : digits;
+}
+
+[$("#activity-start"), $("#activity-end")].forEach(input =>
+  input.addEventListener("input", () => maskTime(input))
+);
+
+document.querySelectorAll("[data-minutes]").forEach(button =>
+  button.addEventListener("click", () => {
+    const start = $("#activity-start").value;
+
+    if (!isValidTime(start)) {
+      $("#form-error").textContent = "Informe primeiro o horário inicial (ex.: 08:00).";
+      $("#activity-start").focus();
+      return;
+    }
+
+    $("#form-error").textContent = "";
+    const [hours, minutes] = start.split(":").map(Number);
+    const total = Math.min(hours * 60 + minutes + Number(button.dataset.minutes), 23 * 60 + 59);
+    $("#activity-end").value =
+      `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  })
+);
+
+$("#clear-time").addEventListener("click", () => {
+  $("#activity-start").value = "";
+  $("#activity-end").value = "";
 });
 
 render();
