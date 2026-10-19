@@ -5,9 +5,13 @@ const $ = (selector) => document.querySelector(selector);
 const STORAGE_KEY = "centralRO_activities_v1";
 
 const CATEGORIES = [
-  "Estudos", "Trabalho", "Treinamento físico",
-  "Pessoal", "Compromissos", "Casa", "Outros"
+  "Estudos", "Trabalho", "Reuniões", "Projetos",
+  "Treinamento físico", "Saúde", "Finanças", "Família",
+  "Lazer", "Viagens", "Compras", "Pessoal",
+  "Compromissos", "Casa", "Outros"
 ];
+
+const PRIORITIES = ["none", "low", "medium", "high"];
 
 const VIEW_INFO = {
   month: ["Agenda mensal", "Visão geral das atividades do mês."],
@@ -73,21 +77,34 @@ function loadActivities() {
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.filter(item =>
-      item &&
-      typeof item.id === "string" &&
-      typeof item.title === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
-      CATEGORIES.includes(item.category) &&
-      ["low", "medium", "high"].includes(item.priority) &&
-      ["pending", "done"].includes(item.status)
-    );
+    return parsed
+      .filter(item =>
+        item &&
+        typeof item.id === "string" &&
+        typeof item.title === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
+        ["pending", "done"].includes(item.status)
+      )
+      .map(item => ({
+        ...item,
+        category: CATEGORIES.includes(item.category) ? item.category : "Outros",
+        priority: PRIORITIES.includes(item.priority) ? item.priority : "none"
+      }));
   } catch (error) {
     console.error("Erro ao carregar os dados:", error);
     alert("Não foi possível ler os dados salvos. Verifique o armazenamento do navegador.");
     return [];
   }
 }
+
+function fillCategorySelects() {
+  const options = CATEGORIES.map(name => `<option>${esc(name)}</option>`).join("");
+  $("#activity-category").innerHTML = options;
+  $("#category-filter").innerHTML =
+    '<option value="all">Todas as categorias</option>' + options;
+}
+
+fillCategorySelects();
 
 let activities = loadActivities();
 let selectedDate = localISO();
@@ -183,7 +200,7 @@ function renderStats() {
 }
 
 function priorityLabel(priority) {
-  return { high: "Alta", medium: "Média", low: "Baixa" }[priority];
+  return { high: "Alta", medium: "Média", low: "Baixa" }[priority] || "";
 }
 
 function activityMarkup(item) {
@@ -212,9 +229,9 @@ function activityMarkup(item) {
           })}</span>
           <span>${time}</span>
           <span>${esc(item.category)}</span>
-          <span class="tag ${item.priority}">
-            Prioridade ${priorityLabel(item.priority)}
-          </span>
+          ${item.priority !== "none"
+            ? `<span class="tag ${item.priority}">Prioridade ${priorityLabel(item.priority)}</span>`
+            : ""}
           ${overdue ? '<span class="tag overdue">Atrasada</span>' : ""}
         </div>
       </div>
@@ -400,7 +417,7 @@ function openForm(activity = null) {
   $("#activity-start").value = activity?.startTime || "";
   $("#activity-end").value = activity?.endTime || "";
   $("#activity-category").value = activity?.category || "Estudos";
-  $("#activity-priority").value = activity?.priority || "medium";
+  $("#activity-priority").value = activity?.priority || "none";
   $("#activity-status").value = activity?.status || "pending";
 
   $("#activity-dialog").showModal();
@@ -456,7 +473,7 @@ $("#activity-form").addEventListener("submit", event => {
     return;
   }
 
-  if (!["low", "medium", "high"].includes(priority) ||
+  if (!PRIORITIES.includes(priority) ||
       !["pending", "done"].includes(status)) {
     error.textContent = "Verifique a prioridade e a situação.";
     return;

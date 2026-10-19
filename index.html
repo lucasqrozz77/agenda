@@ -82,13 +82,6 @@
         <div class="toolbar-actions">
           <select id="category-filter" aria-label="Filtrar categoria">
             <option value="all">Todas as categorias</option>
-            <option>Estudos</option>
-            <option>Trabalho</option>
-            <option>Treinamento físico</option>
-            <option>Pessoal</option>
-            <option>Compromissos</option>
-            <option>Casa</option>
-            <option>Outros</option>
           </select>
           <button class="secondary-btn" id="export-btn">Exportar backup</button>
         </div>
@@ -152,15 +145,7 @@
         </div>
         <div>
           <label for="activity-category">Categoria</label>
-          <select id="activity-category">
-            <option>Estudos</option>
-            <option>Trabalho</option>
-            <option>Treinamento físico</option>
-            <option>Pessoal</option>
-            <option>Compromissos</option>
-            <option>Casa</option>
-            <option>Outros</option>
-          </select>
+          <select id="activity-category"></select>
         </div>
       </div>
 
@@ -177,10 +162,11 @@
 
       <div class="form-row">
         <div>
-          <label for="activity-priority">Prioridade</label>
+          <label for="activity-priority">Prioridade (opcional)</label>
           <select id="activity-priority">
+            <option value="none" selected>Sem prioridade</option>
             <option value="low">Baixa</option>
-            <option value="medium" selected>Média</option>
+            <option value="medium">Média</option>
             <option value="high">Alta</option>
           </select>
         </div>
