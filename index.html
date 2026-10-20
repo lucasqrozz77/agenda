@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RO | Central Operacional</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
+</head>
+<body>
+  
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <div class="badge-logo">RO</div>
+
+      <p class="eyebrow">PLANEJAMENTO OPERACIONAL</p>
+      <h1 id="auth-title">Central RO</h1>
+      <p class="muted" id="auth-description">
+        Entre na sua conta para acessar sua agenda.
+      </p>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth-mode="login">
+          Entrar
+        </button>
+        <button type="button" class="auth-tab" data-auth-mode="register">
+          Criar conta
+        </button>
+      </div>
+
+      <form id="auth-form">
+        <label for="auth-email">E-mail</label>
+        <input
+          type="email"
+          id="auth-email"
+          placeholder="seu@email.com"
+          autocomplete="email"
+          required
+        >
+
+        <label for="auth-password">Senha</label>
+        <input
+          type="password"
+          id="auth-password"
+          placeholder="Mínimo de 6 caracteres"
+          autocomplete="current-password"
+          minlength="6"
+          required
+        >
+
+        <p id="auth-error" class="error" role="alert"></p>
+        <p id="auth-message" class="muted" role="status"></p>
+
+        <button type="submit" id="auth-submit" class="primary-btn">
+          Entrar
+        </button>
+      </form>
+
+      <p class="auth-footer">
+        CENTRAL RO · ACESSO INDIVIDUAL
+      </p>
+    </div>
+  </section>
+
+  <!-- A agenda existente ficará dentro deste contêiner. -->
+<div id="app-container" hidden>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="badge-logo">RO</div>
+      <div>
+        <strong>CENTRAL RO</strong>
+        <small>PLANEJAMENTO OPERACIONAL</small>
+      </div>
+    </div>
+
+    <p class="section-label">NAVEGAÇÃO</p>
+    <nav>
+      <button class="nav-btn active" data-view="month">▦ Agenda mensal</button>
+      <button class="nav-btn" data-view="week">▤ Agenda semanal</button>
+      <button class="nav-btn" data-view="day">◷ Agenda diária</button>
+      <button class="nav-btn" data-view="all">☷ Todas as atividades</button>
+    </nav>
+
+    
+<div class="profile-section">
+  <button type="button" id="profile-btn" class="nav-btn">
+    <span>👤 Meu perfil</span>
+  </button>
+
+  <div id="profile-panel" hidden>
+    <p class="section-label">MINHA CONTA</p>
+    <p id="profile-email" class="profile-email"></p>
+
+    <button type="button" id="logout-btn" class="secondary-btn">
+      Sair da conta
+    </button>
+  </div>
+</div>
+
+    <div class="sidebar-bottom">
+      <div class="status-indicator"></div>
+      <div>
+        <strong>SISTEMA OPERACIONAL</strong>
+        <small>Armazenamento local ativo</small>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PAINEL DE CONTROLE / RO-01</p>
+        <h1 id="page-title">Agenda mensal</h1>
+        <p class="muted" id="page-description">
+          Planeje, organize e acompanhe suas atividades.
+        </p>
+      </div>
+      <div class="topbar-actions">
+        <button class="secondary-btn" id="add-routine">↻ Nova rotina</button>
+        <button class="primary-btn" id="add-activity">＋ Nova atividade</button>
+      </div>
+    </header>
+
+    <section class="stats">
+      <article class="stat-card">
+        <span>ATIVIDADES DO PERÍODO</span>
+        <strong id="total-count">0</strong>
+        <small>Registros programados</small>
+      </article>
+      <article class="stat-card">
+        <span>CONCLUÍDAS</span>
+        <strong id="done-count">0</strong>
+        <small>Atividades finalizadas</small>
+      </article>
+      <article class="stat-card">
+        <span>PENDENTES</span>
+        <strong id="pending-count">0</strong>
+        <small>Aguardando execução</small>
+      </article>
+      <article class="stat-card">
+        <span>ATRASADAS</span>
+        <strong id="overdue-count">0</strong>
+        <small>Prazo ultrapassado</small>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="period-controls">
+          <button class="icon-btn" id="previous-period" aria-label="Período anterior">‹</button>
+          <h2 id="period-title">Mês</h2>
+          <button class="icon-btn" id="next-period" aria-label="Próximo período">›</button>
+          <button class="secondary-btn" id="today-btn">Hoje</button>
+        </div>
+
+        <div class="toolbar-actions">
+          <select id="category-filter" aria-label="Filtrar categoria">
+            <option value="all">Todas as categorias</option>
+          </select>
+          <button class="secondary-btn" id="export-btn">Exportar backup</button>
+        </div>
+      </div>
+
+      <div id="calendar-view">
+        <div class="calendar-grid" id="calendar"></div>
+      </div>
+
+      <div id="schedule-view" hidden>
+        <div class="schedule" id="schedule"></div>
+      </div>
+
+      <div id="all-view" hidden>
+        <div id="activity-list" class="activity-list"></div>
+      </div>
+    </section>
+
+    <section class="panel selected-panel">
+      <div class="selected-header">
+        <div>
+          <p class="eyebrow">DETALHES DO PLANEJAMENTO</p>
+          <h2 id="selected-title">Atividades do dia</h2>
+        </div>
+        <button class="secondary-btn" id="add-selected">＋ Adicionar nesta data</button>
+      </div>
+      <div id="selected-activities" class="activity-list"></div>
+    </section>
+
+    <footer>
+      <span>ROTINA OPERACIONAL · RO</span>
+      <span>Versão 1.0 · Dados armazenados neste navegador</span>
+    </footer>
+  </main>
+
+  <dialog id="activity-dialog">
+    <form id="activity-form">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">REGISTRO DE ATIVIDADE</p>
+          <h2 id="dialog-title">Nova atividade</h2>
+        </div>
+        <button type="button" class="icon-btn" id="close-dialog"
+          aria-label="Fechar formulário">×</button>
+      </div>
+
+      <input type="hidden" id="activity-id">
+
+      <div class="kind-toggle" role="radiogroup" aria-label="Tipo de atividade">
+        <label>
+          <input type="radio" name="activity-kind" value="event" checked>
+          <span>Compromisso eventual</span>
+          <small>Aparece em todas as agendas</small>
+        </label>
+        <label>
+          <input type="radio" name="activity-kind" value="routine">
+          <span>Rotina cotidiana</span>
+          <small>Repete toda semana · só na agenda semanal e diária</small>
+        </label>
+      </div>
+
+      <label for="activity-title">Título *</label>
+      <input id="activity-title" maxlength="120"
+        placeholder="Ex.: Estudar para o concurso" required>
+
+      <label for="activity-description">Descrição</label>
+      <textarea id="activity-description" maxlength="1000" rows="3"
+        placeholder="Detalhes, local ou observações"></textarea>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-date" id="date-label">Data *</label>
+          <input type="date" id="activity-date" required>
+        </div>
+        <div>
+          <label for="activity-category">Categoria</label>
+          <select id="activity-category"></select>
+        </div>
+      </div>
+
+      <div id="routine-days" hidden>
+        <p class="field-label">Repete nos dias</p>
+        <div class="weekday-picker" id="weekday-picker">
+          <label><input type="checkbox" value="0"><span>Dom</span></label>
+          <label><input type="checkbox" value="1"><span>Seg</span></label>
+          <label><input type="checkbox" value="2"><span>Ter</span></label>
+          <label><input type="checkbox" value="3"><span>Qua</span></label>
+          <label><input type="checkbox" value="4"><span>Qui</span></label>
+          <label><input type="checkbox" value="5"><span>Sex</span></label>
+          <label><input type="checkbox" value="6"><span>Sáb</span></label>
+        </div>
+        <div class="chip-row">
+          <button type="button" class="chip" data-days="0,1,2,3,4,5,6">Todos os dias</button>
+          <button type="button" class="chip" data-days="1,2,3,4,5">Seg a sex</button>
+          <button type="button" class="chip" data-days="0,6">Fim de semana</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-start">Horário inicial</label>
+          <input id="activity-start" class="time-input" inputmode="numeric"
+            maxlength="5" placeholder="08:00" autocomplete="off" list="time-options">
+        </div>
+        <div>
+          <label for="activity-end">Horário final</label>
+          <input id="activity-end" class="time-input" inputmode="numeric"
+            maxlength="5" placeholder="09:00" autocomplete="off" list="time-options">
+        </div>
+      </div>
+
+      <div class="chip-row" aria-label="Duração rápida">
+        <span class="chip-label">Duração:</span>
+        <button type="button" class="chip" data-minutes="30">30 min</button>
+        <button type="button" class="chip" data-minutes="60">1 h</button>
+        <button type="button" class="chip" data-minutes="90">1h30</button>
+        <button type="button" class="chip" data-minutes="120">2 h</button>
+        <button type="button" class="chip" id="clear-time">Sem horário</button>
+      </div>
+      <datalist id="time-options"></datalist>
+
+      <div class="form-row">
+        <div>
+          <label for="activity-priority">Prioridade (opcional)</label>
+          <select id="activity-priority">
+            <option value="none" selected>Sem prioridade</option>
+            <option value="low">Baixa</option>
+            <option value="medium">Média</option>
+            <option value="high">Alta</option>
+          </select>
+        </div>
+        <div id="status-field">
+          <label for="activity-status">Situação</label>
+          <select id="activity-status">
+            <option value="pending">Pendente</option>
+            <option value="done">Concluída</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="error" id="form-error" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button type="button" class="secondary-btn" id="cancel-dialog">
+          Cancelar
+        </button>
+        <button type="submit" class="primary-btn">Salvar atividade</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>
