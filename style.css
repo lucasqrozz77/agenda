@@ -821,6 +821,7 @@ textarea {
   .kind-toggle { grid-template-columns: 1fr; }
   .topbar-actions .secondary-btn,
   .topbar-actions .primary-btn { font-size: 11px; padding: 10px; }
+<<<<<<< HEAD
 }
 
 
@@ -926,3 +927,6 @@ textarea {
 #logout-btn {
   width: 100%;
 }
+=======
+}
+>>>>>>> origin/main
