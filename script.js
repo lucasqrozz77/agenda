@@ -17,6 +17,13 @@ const appContainer = document.querySelector("#app-container");
 const authForm = document.querySelector("#auth-form");
 const authEmail = document.querySelector("#auth-email");
 const authPassword = document.querySelector("#auth-password");
+const authTabsContainer = document.querySelector("#auth-tabs");
+const forgotPasswordButton = document.querySelector("#forgot-password");
+const passwordRecoveryForm = document.querySelector("#password-recovery-form");
+const newPassword = document.querySelector("#new-password");
+const confirmPassword = document.querySelector("#confirm-password");
+const recoveryError = document.querySelector("#recovery-error");
+const recoverySubmit = document.querySelector("#recovery-submit");
 
 const authTitle = document.querySelector("#auth-title");
 const authDescription = document.querySelector("#auth-description");
@@ -28,6 +35,7 @@ const authMessage = document.querySelector("#auth-message");
 const authTabs = document.querySelectorAll("[data-auth-mode]");
 
 let authMode = "login";
+let passwordRecoveryMode = false;
 
 authTabs.forEach((button) => {
   button.addEventListener("click", () => {
@@ -36,6 +44,12 @@ authTabs.forEach((button) => {
     authTabs.forEach((tab) => {
       tab.classList.toggle("active", tab === button);
     });
+
+    authForm.hidden = false;
+    authTabsContainer.hidden = false;
+    forgotPasswordButton.hidden = authMode !== "login";
+    passwordRecoveryForm.hidden = true;
+    passwordRecoveryMode = false;
 
     const isLogin = authMode === "login";
 
@@ -58,6 +72,31 @@ authTabs.forEach((button) => {
     authError.textContent = "";
     authMessage.textContent = "";
   });
+});
+
+forgotPasswordButton.addEventListener("click", async () => {
+  authError.textContent = "";
+  authMessage.textContent = "";
+
+  if (!authEmail.reportValidity()) return;
+
+  forgotPasswordButton.disabled = true;
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      authEmail.value.trim(),
+      { redirectTo: `${window.location.origin}${window.location.pathname}` }
+    );
+
+    if (error) throw error;
+
+    authMessage.textContent =
+      "Se houver uma conta com esse e-mail, enviaremos um link para redefinir sua senha.";
+  } catch (error) {
+    authError.textContent = error.message;
+  } finally {
+    forgotPasswordButton.disabled = false;
+  }
 });
 
 authForm.addEventListener("submit", async (event) => {
@@ -102,19 +141,68 @@ authForm.addEventListener("submit", async (event) => {
   }
 });
 
-async function updateAuthScreen() {
-  const { data, error } = await supabase.auth.getSession();
+passwordRecoveryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  recoveryError.textContent = "";
 
-  if (error) {
-    authError.textContent = error.message;
+  if (newPassword.value !== confirmPassword.value) {
+    recoveryError.textContent = "As senhas não coincidem.";
     return;
   }
 
-  const session = data.session;
+  recoverySubmit.disabled = true;
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword.value
+    });
+
+    if (error) throw error;
+
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) throw signOutError;
+
+    passwordRecoveryMode = false;
+    authMode = "login";
+    authTabs.forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.authMode === "login");
+    });
+    authTabsContainer.hidden = false;
+    authForm.hidden = false;
+    passwordRecoveryForm.hidden = true;
+    forgotPasswordButton.hidden = false;
+    authTitle.textContent = "Central RO";
+    authDescription.textContent =
+      "Entre na sua conta para acessar sua agenda.";
+    authPassword.value = "";
+    newPassword.value = "";
+    confirmPassword.value = "";
+    authMessage.textContent =
+      "Senha atualizada! Entre com sua nova senha.";
+    await updateAuthScreen(null);
+  } catch (error) {
+    recoveryError.textContent = error.message;
+  } finally {
+    recoverySubmit.disabled = false;
+  }
+});
+
+async function updateAuthScreen(session) {
+  if (session === undefined) {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      authError.textContent = error.message;
+      return;
+    }
+
+    session = data.session;
+  }
+
   const isLoggedIn = Boolean(session);
 
-  authScreen.hidden = isLoggedIn;
-  appContainer.hidden = !isLoggedIn;
+  authScreen.hidden = isLoggedIn && !passwordRecoveryMode;
+  appContainer.hidden = !isLoggedIn || passwordRecoveryMode;
 
   if (isLoggedIn) {
     profileEmail.textContent = session.user.email || "E-mail não disponível";
@@ -124,8 +212,22 @@ async function updateAuthScreen() {
   }
 }
 
-supabase.auth.onAuthStateChange(() => {
-  updateAuthScreen();
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    passwordRecoveryMode = true;
+    authTabsContainer.hidden = true;
+    authForm.hidden = true;
+    forgotPasswordButton.hidden = true;
+    passwordRecoveryForm.hidden = false;
+    authTitle.textContent = "Redefinir senha";
+    authDescription.textContent =
+      "Escolha uma nova senha para acessar sua conta.";
+    authError.textContent = "";
+    authMessage.textContent = "";
+    recoveryError.textContent = "";
+  }
+
+  updateAuthScreen(session);
 });
 
 updateAuthScreen();

@@ -19,7 +19,7 @@
         Entre na sua conta para acessar sua agenda.
       </p>
 
-      <div class="auth-tabs">
+      <div class="auth-tabs" id="auth-tabs">
         <button type="button" class="auth-tab active" data-auth-mode="login">
           Entrar
         </button>
@@ -53,6 +53,37 @@
 
         <button type="submit" id="auth-submit" class="primary-btn">
           Entrar
+        </button>
+      </form>
+
+      <button type="button" id="forgot-password" class="auth-link">
+        Esqueceu a senha?
+      </button>
+
+      <form id="password-recovery-form" hidden>
+        <label for="new-password">Nova senha</label>
+        <input
+          type="password"
+          id="new-password"
+          placeholder="Mínimo de 6 caracteres"
+          autocomplete="new-password"
+          minlength="6"
+          required
+        >
+
+        <label for="confirm-password">Confirme a nova senha</label>
+        <input
+          type="password"
+          id="confirm-password"
+          placeholder="Digite a senha novamente"
+          autocomplete="new-password"
+          minlength="6"
+          required
+        >
+
+        <p id="recovery-error" class="error" role="alert"></p>
+        <button type="submit" id="recovery-submit" class="primary-btn">
+          Salvar nova senha
         </button>
       </form>
 

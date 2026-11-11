@@ -821,7 +821,6 @@ textarea {
   .kind-toggle { grid-template-columns: 1fr; }
   .topbar-actions .secondary-btn,
   .topbar-actions .primary-btn { font-size: 11px; padding: 10px; }
-<<<<<<< HEAD
 }
 
 
@@ -898,6 +897,35 @@ textarea {
   margin-top: 8px;
 }
 
+#password-recovery-form {
+  display: grid;
+  gap: 10px;
+}
+
+#password-recovery-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0b1220;
+  color: #fff;
+}
+
+#password-recovery-form .primary-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.auth-link {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  text-decoration: underline;
+}
+
 .auth-footer {
   margin-top: 24px;
   text-align: center;
@@ -927,6 +955,3 @@ textarea {
 #logout-btn {
   width: 100%;
 }
-=======
-}
->>>>>>> origin/main
